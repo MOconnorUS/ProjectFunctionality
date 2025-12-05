@@ -1,0 +1,338 @@
+% CSE 620 Final Project - Day Trading Profit Capitalization
+% Author: Matthew O'Connor
+% KRR Methodology: Temporal Projection
+
+% Agent's budget'
+#const budget=3058900.
+% The stoploss is -2.5 percent
+#const stoploss=-250.
+% The profitbar is 5 percent
+#const profitbar=500.
+% The buybar is -0.05 percent
+#const buybar=-5.
+% Agent buys company X at ask price Y
+buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P < buybar, not bought(X).
+-buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P > 0.
+-buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P <= 0, P > buybar.
+buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buybar, hour >= 4, hour < 8, not bought(X).
+-buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0.
+-buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P < 0, P > buybar, hour >= 4, hour < 8.
+-buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P <= 0, P > buybar, percentagemovepost(P2, X), P2 < buybar, hour <= 4.
+-buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P <= 0, P > buybar, percentagemovepost(P2, X), P2 < buybar, hour > 8.
+% Agent sells company X at bid price Y
+sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > 0, P <= stoploss.
+sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P > 0, P <= stoploss, hour >= 4, hour < 8.
+% Agent choose to monitor company X
+monitor(X) :- company(X), -buy(X, Y), price(Y).
+monitor(X) :- company(X), bought(X), not buy(X, Y), price(Y).
+monitor(X) :- company(X), sold(X), not sell(X, Y), price(Y).
+% X is a price, either ask or bid
+price(Y) :- askprice(Y, X).
+price(Y) :- bidprice(Y, X).
+%%%%%%%%%%%%%%%%%%%% RULES %%%%%%%%%%%%%%%%%%%%
+% Rule 1: Agent must close all positions by the end of after hours trading, 8PM
+:- not sold(X), not bought(X), company(X), hour = 8.
+% Rule 2: Agent cannot buy the same stock more than 1 time that day
+:- buy(X, Y), bought(X).
+% Rule 3: Agent cannot buy two different stocks at the same time
+:- buy(X, Y), buy(X2, Y2), X != X2, price(Y), company(X), company(X2), price(Y2).
+% Rule 4: Agent cannot buy & sell stocks at the same time
+:- buy(X, Y), sell(X2, Y2), company(X), price(Y).
+:- sell(X, Y), buy(X2, Y2), company(X), price(Y).
+% Rule 5: It is impossible to sell a stock Agent do not own
+:- sell(X, Y), not bought(X), price(Y), company(X).
+% Rule 6: Agent cannot sell two different stocks at the same time
+:- sell(X, Y), sell(X2, Y2), X != X2, price(Y), company(X), company(X2), price(Y2).
+% Rule 8: Agent cannot sell the same stock more than 1 time that day
+:- sell(X, Y), sold(X).
+% Rule 9: Agent must spend as much of their balance as possible by the end of the day if not all
+:- budget > askprice(Y, X), hour = 8, not sold(X), company(X), price(Y).
+% Rule 10: Agent must sell if a move of >= 5 percent is observed. The duplicate below is for after hours
+sell(X, Y) :- not sold(X), percentagemovetotal(P, X), P >= profitbar, price(Y).
+sell(X, Y) :- not sold(X), percentagemovepost(P, X), P >= profitbar, price(Y), hour >= 4, hour < 8.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% INFORMATION FOR TSLA %%%
+company(tsla).
+% The bid price for TSLA
+bidprice(38504, tsla).
+% The ask price for TSLA
+askprice(38520, tsla).
+% The bid size for TSLA
+bidsize(19200000, tsla).
+% The ask size for TSLA
+asksize(1200000, tsla).
+% The high price for TSLA
+highprice(38551, tsla).
+% The low price for TSLA
+lowprice(38504, tsla).
+% The close price for TSLA
+closeprice(38509, tsla).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR CART %%%
+company(cart).
+% The bid price for CART
+bidprice(4031, cart).
+% The ask price for CART
+askprice(4056, cart).
+% The bid size for CART
+bidsize(4000000, cart).
+% The ask size for CART
+asksize(2000000, cart).
+% The high price for CART
+highprice(4031, cart).
+% The low price for CART
+lowprice(3954, cart).
+% The close price for CART
+closeprice(4043, cart).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR COIN %%%
+company(coin).
+% The bid price for COIN
+bidprice(27031, coin).
+% The ask price for COIN
+askprice(27100, coin).
+% The bid size for COIN
+bidsize(2800000, coin).
+% The ask size for COIN
+asksize(800000, coin).
+% The high price for COIN
+highprice(27100, coin).
+% The low price for COIN
+lowprice(26902, coin).
+% The close price for COIN
+closeprice(27043, coin).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR GBX %%%
+company(gbx).
+% The bid price for GBX
+bidprice(4131, gbx).
+% The ask price for GBX
+askprice(4218, gbx).
+% The bid size for GBX
+bidsize(2000000, gbx).
+% The ask size for GBX
+asksize(6000000, gbx).
+% The high price for GBX
+highprice(4131, gbx).
+% The low price for GBX
+lowprice(4209, gbx).
+% The close price for GBX
+closeprice(4209, gbx).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR DASH %%%
+company(dash).
+% The bid price for DASH
+bidprice(19300, dash).
+% The ask price for DASH
+askprice(19362, dash).
+% The bid size for DASH
+bidsize(400000, dash).
+% The ask size for DASH
+asksize(400000, dash).
+% The high price for DASH
+highprice(19313, dash).
+% The low price for DASH
+lowprice(19298, dash).
+% The close price for DASH
+closeprice(19315, dash).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR SNAP %%%
+company(snap).
+% The bid price for SNAP
+bidprice(832, snap).
+% The ask price for SNAP
+askprice(833, snap).
+% The bid size for SNAP
+bidsize(27000000, snap).
+% The ask size for SNAP
+asksize(28000000, snap).
+% The high price for SNAP
+highprice(832, snap).
+% The low price for SNAP
+lowprice(832, snap).
+% The close price for SNAP
+closeprice(832, snap).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR APP %%%
+company(app).
+% The bid price for APP
+bidprice(52947, app).
+% The ask price for APP
+askprice(53000, app).
+% The bid size for APP
+bidsize(1600000, app).
+% The ask size for APP
+asksize(800000, app).
+% The high price for APP
+highprice(53027, app).
+% The low price for APP
+lowprice(52947, app).
+% The close price for APP
+closeprice(53041, app).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR IONQ %%%
+company(ionq).
+% The bid price for IONQ
+bidprice(4335, ionq).
+% The ask price for IONQ
+askprice(4342, ionq).
+% The bid size for IONQ
+bidsize(2000000, ionq).
+% The ask size for IONQ
+asksize(1000000, ionq).
+% The high price for IONQ
+highprice(4320, ionq).
+% The low price for IONQ
+lowprice(4282, ionq).
+% The close price for IONQ
+closeprice(4338, ionq).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR TOST %%%
+company(tost).
+% The bid price for TOST
+bidprice(3606, tost).
+% The ask price for TOST
+askprice(3617, tost).
+% The bid size for TOST
+bidsize(4000000, tost).
+% The ask size for TOST
+asksize(2000000, tost).
+% The high price for TOST
+highprice(3606, tost).
+% The low price for TOST
+lowprice(3600, tost).
+% The close price for TOST
+closeprice(3613, tost).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR HIMS %%%
+company(hims).
+% The bid price for HIMS
+bidprice(3518, hims).
+% The ask price for HIMS
+askprice(3525, hims).
+% The bid size for HIMS
+bidsize(1000000, hims).
+% The ask size for HIMS
+asksize(6000000, hims).
+% The high price for HIMS
+highprice(3518, hims).
+% The low price for HIMS
+lowprice(3514, hims).
+% The close price for HIMS
+closeprice(3518, hims).
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INFORMATION FOR CMG %%%
+company(cmg).
+% The bid price for CMG
+bidprice(3108, cmg).
+% The ask price for CMG
+askprice(3119, cmg).
+% The bid size for CMG
+bidsize(57000000, cmg).
+% The ask size for CMG
+asksize(1000000, cmg).
+% The high price for CMG
+highprice(3108, cmg).
+% The low price for CMG
+lowprice(3108, cmg).
+% The close price for CMG
+closeprice(3112, cmg).
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+bought(coin).
+bought(dash).
+
+sold(none).
+
+% The agent's position status of TSLA
+positionmovetotal(0, tsla).
+positionmovepost(0, tsla).
+% The agent's position status of CART
+positionmovetotal(0, cart).
+positionmovepost(0, cart).
+% The agent's position status of COIN
+positionmovetotal(0, coin).
+positionmovepost(0, coin).
+% The agent's position status of GBX
+positionmovetotal(0, gbx).
+positionmovepost(0, gbx).
+% The agent's position status of DASH
+positionmovetotal(0, dash).
+positionmovepost(0, dash).
+% The agent's position status of SNAP
+positionmovetotal(0, snap).
+positionmovepost(0, snap).
+% The agent's position status of APP
+positionmovetotal(0, app).
+positionmovepost(0, app).
+% The agent's position status of IONQ
+positionmovetotal(0, ionq).
+positionmovepost(0, ionq).
+% The agent's position status of TOST
+positionmovetotal(0, tost).
+positionmovepost(0, tost).
+% The agent's position status of HIMS
+positionmovetotal(0, hims).
+positionmovepost(0, hims).
+% The agent's position status of CMG
+positionmovetotal(0, cmg).
+positionmovepost(0, cmg).
+
+% The current hour
+#const hour=9.
+% The current minute
+#const minute=32.
+
+%%% PERCENTAGE PREDICATES FOR TSLA %%%
+percentagemovetotal(-12, tsla).
+percentagemovepost(-473, tsla).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR CART %%%
+percentagemovetotal(0, cart).
+percentagemovepost(-175, cart).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR COIN %%%
+percentagemovetotal(-25, coin).
+percentagemovepost(-483, coin).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR GBX %%%
+percentagemovetotal(0, gbx).
+percentagemovepost(-372, gbx).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR DASH %%%
+percentagemovetotal(-6, dash).
+percentagemovepost(-676, dash).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR SNAP %%%
+percentagemovetotal(0, snap).
+percentagemovepost(-263, snap).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR APP %%%
+percentagemovetotal(-15, app).
+percentagemovepost(-506, app).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR IONQ %%%
+percentagemovetotal(34, ionq).
+percentagemovepost(-807, ionq).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR TOST %%%
+percentagemovetotal(0, tost).
+percentagemovepost(69, tost).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR HIMS %%%
+percentagemovetotal(0, hims).
+percentagemovepost(-497, hims).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR CMG %%%
+percentagemovetotal(0, cmg).
+percentagemovepost(-155, cmg).
+%%%%%%%%%%%%%%%%%%%%%%
+
+% Current profit
+#const profit=0.
+
+#show monitor/1.
+#show buy/2.
+#show sell/2.
+
