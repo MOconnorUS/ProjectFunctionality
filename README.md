@@ -14,9 +14,9 @@ My CSE 620 final project leverages the Charles Schwab Datastream via their API. 
 2. Open Command prompt type `cmd` into the search bar on your windows device
 3. Navigate to your the folder you wish to clone the repository in this can be done by typing `cd file_path_to_directory`
 4. Click on the green code button on the repository shown in the image below  
-![Green Code Button](/assets/images/Code_Button.PNG "Green Code Button")
+![Green Code Button](/assets/images/Code_Button.png "Green Code Button")
 5. Copy the github link provided in the drop down by clicking the button circled in the image below  
-![Copy Clone URL](/assets/images/Copy_Clone.PNG "Copy Clone URL")
+![Copy Clone URL](/assets/images/Copy_Clone.png "Copy Clone URL")
 6. Type: git clone github_link *github_link is the url provided by github which can be pasted by right clicking on the command prompt*
 
 # Download Python and add it to your PATH
@@ -27,9 +27,9 @@ If you did NOT add Python to your PATH do the following
 1. Copy the file path to your Python installation
 2. Edit your system environment variables by searching "Environment variables" in your windows search
 3. Click environment variables as seen in the screenshot below
-![Environment Variables](/assets/images/Environment_Variables.PNG "Environment Variables")
+![Environment Variables](/assets/images/Environment_Variables.png "Environment Variables")
 4. Select the Path under System Variables and edit it as seen in the screenshot below
-![Edit Path](/assets/images/Edit_Path.PNG "Edit Path")
+![Edit Path](/assets/images/Edit_Path.png "Edit Path")
 5. Select New and then paste your file pathing into the text field
 6. Press "Ok" on all three open windows to close them
 7. If you had a cmd window open, restart it
