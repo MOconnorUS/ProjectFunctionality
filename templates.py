@@ -164,5 +164,7 @@ ASP_HEADER_INFORMATION = [
 ASP_FOOTER_INFORMATION = [
     "#show monitor/1.",
     "#show buy/2.",
-    "#show sell/2."
+    "#show sell/2.",
+    "#show sell_all/2.",
+    "#show force_buy/2."
 ]

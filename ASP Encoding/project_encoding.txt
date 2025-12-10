@@ -2,248 +2,312 @@
 % Author: Matthew O'Connor
 % KRR Methodology: Temporal Projection
 
+% The current hour
+#const hour=8.
+% The current minute
+#const minute=0.
+
 % Agent's budget'
-#const budget=3058900.
+#const budget=3627300.
 % The stoploss is -2.5 percent
 #const stoploss=-250.
-% The profitbar is 5 percent
-#const profitbar=500.
-% The buybar is -0.05 percent
-#const buybar=-5.
-% Agent buys company X at ask price Y
-buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P < buybar, not bought(X).
--buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P > 0.
--buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P <= 0, P > buybar.
-buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buybar, hour >= 4, hour < 8, not bought(X).
--buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0.
--buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P < 0, P > buybar, hour >= 4, hour < 8.
--buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P <= 0, P > buybar, percentagemovepost(P2, X), P2 < buybar, hour <= 4.
--buy(X, Y) :- company(X), askprice(Y, X), percentagemovetotal(P, X), P <= 0, P > buybar, percentagemovepost(P2, X), P2 < buybar, hour > 8.
-% Agent sells company X at bid price Y
-sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > 0, P <= stoploss.
-sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P > 0, P <= stoploss, hour >= 4, hour < 8.
-% Agent choose to monitor company X
-monitor(X) :- company(X), -buy(X, Y), price(Y).
-monitor(X) :- company(X), bought(X), not buy(X, Y), price(Y).
-monitor(X) :- company(X), sold(X), not sell(X, Y), price(Y).
-% X is a price, either ask or bid
+% The day profit_marker is 5 percent
+#const day_profit_marker=500.
+% The post profit_marker is 2.5 percent
+#const post_profit_marker=250.
+% The AM Buy Marker is -0.05 percent (will be from 930 - 12 if i make others)
+#const buy_marker=-5.
+% A backup marker incase the agent has not purchased a stock and market hours have closed
+#const backup_buy_marker=5.
+% Agent can buy company X at askprice Y if the day percentage move is less than the AM buy marker and we are during market hours
+can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P < buy_marker, not bought(X), hour >= 9.
+can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P < buy_marker, not bought(X), hour >= 1, hour < 4.
+% Agent can buy company X at askprice Y if the post percentage move is less than the buy marker and we are after hours
+can_buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buy_marker, hour >= 5, hour < 8, not bought(X).
+can_buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buy_marker, hour = 4, minute > 10, not bought(X).
+% Agent can buy company X at askprice Y if the time is between 5:45 and 5:55 and the company has not been purchased - this is intended to be a force buy
+force_buy(X, Y)  :- company(X), askprice(Y, X), hour = 5, minute >= 45, minute <= 55, not bought(X).
+% Rule 11: Agent will can company X if its percentage move after hours is between the buy marker and the backup buy marker and time is between 4:01 - 4:10
+can_buy(X, Y) :- company(X), askprice(Y, X), not bought(X), percentagemovepost(P, X), P >= buy_marker, P <= backup_buy_marker, hour = 4, minute <= 10, minute >= 1.
+% Agent cannot buy company X at askprice Y if the day percentage move is greater than 0 and we are during market hours
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P > 0, hour >= 9, not bought(X).
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P > 0, hour >= 1, hour < 4, not bought(X).
+% Agent cannot buy company X at askprice Y if the post percentage move is greater than 0 and we are after hours
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0, hour >= 5, hour < 8, not bought(X).
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0, hour = 4, minute > 10, not bought(X).
+% Agent cannot buy company X at askprice Y if the day percentage move is less than 0 but greater than the AM buy marker and we are during market hours
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P <= 0, P > buy_marker, hour >= 9, not bought(X).
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P <= 0, P > buy_marker, hour >= 1, hour < 4, not bought(X).
+% Agent cannot buy company X at askprice Y if the post percentage move is less than 0 but greater than the buy marker and we are after hours
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P <= 0, P > buy_marker, hour >= 5, hour < 8, not bought(X).
+-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P <= 0, P > buy_marker, hour = 4, minute > 10, not bought(X).
+% Agent cannot buy company X at askprice Y if X has been purchased
+-can_buy(X, Y) :- bought(X), askprice(Y, X).
+% Agent either buys or doesn't buy company X at askprice Y if can_buy(X, Y)
+buy(X, Y) | -buy(X, Y) :- can_buy(X, Y).
+% Agent cannot buy company X at askprice Y if -can_buy(X, Y)
+-buy(X, Y) :- -can_buy(X, Y).
+% Agent can sell company X at bidprice Y if the position move total is less than the stoploss
+can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P <= stoploss.
+% Agent can sell company X at bidprice Y if the position move post is less than the stoploss and we are after hours
+can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P <= stoploss, hour >= 4, hour < 8.
+% Agent cannot sell company X at bidprice Y if the position move total is greater than the stoploss
+-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > stoploss.
+% Agent cannot sell company X at bidprice Y if the position move post is greater than the stoploss and we are after hours
+-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P > stoploss, hour >= 4, hour < 8.
+% Agent either sells or does not sell company X at bidprice Y
+sell(X, Y) | -sell(X, Y) :- can_sell(X, Y).
+% Agent cannot sell company X at bidprice Y if -can_sell(X, Y)
+-sell(X, Y) :- -can_sell(X, Y).
+% Agent cannot monitor company X if agent is buying company X at price Y
+-can_monitor(X) :- buy(X, Y), price(Y).
+% Agent cannot monitor company X if agent is selling company X at price Y
+-can_monitor(X) :- sell(X, Y), price(Y).
+% Agent can monitor company X as long as it is unknow that they cannot monitor X
+can_monitor(X) :- company(X), not -can_monitor(X).
+% Agent monitors company X if can_monitor(X)
+monitor(X) :- can_monitor(X).
+% Agent cannot monitor company X if -can_monitor(X)
+-monitor(X) :- -can_monitor(X).
+% Agent wil monitor a company X if it has been bought and sold
+monitor(X) :- bought(X), sold(X).% X is a price, either ask or bid
 price(Y) :- askprice(Y, X).
 price(Y) :- bidprice(Y, X).
 %%%%%%%%%%%%%%%%%%%% RULES %%%%%%%%%%%%%%%%%%%%
-% Rule 1: Agent must close all positions by the end of after hours trading, 8PM
-:- not sold(X), not bought(X), company(X), hour = 8.
+% Rule 1: Agent will close all open positions at the end of trading hours, 8PM
+sell_all(X, Y) :- not sold(X), bought(X), company(X), bidprice(Y, X), hour = 7, minute = 59.
 % Rule 2: Agent cannot buy the same stock more than 1 time that day
-:- buy(X, Y), bought(X).
+-can_buy(X, Y) :- bought(X), price(Y).
 % Rule 3: Agent cannot buy two different stocks at the same time
-:- buy(X, Y), buy(X2, Y2), X != X2, price(Y), company(X), company(X2), price(Y2).
-% Rule 4: Agent cannot buy & sell stocks at the same time
-:- buy(X, Y), sell(X2, Y2), company(X), price(Y).
-:- sell(X, Y), buy(X2, Y2), company(X), price(Y).
+:- buy(X, Y), buy(X2, Y2), company(X), price(Y), company(X2), price(Y2), X != X2.
+% Rule 4: Agent cannot buy a stock while selling a different stock
+-buy(X, Y) :- sell(X2, Y2), X != X2, price(Y), company(X).
 % Rule 5: It is impossible to sell a stock Agent do not own
-:- sell(X, Y), not bought(X), price(Y), company(X).
+-can_sell(X, Y) :- not bought(X), price(Y), company(X).
 % Rule 6: Agent cannot sell two different stocks at the same time
-:- sell(X, Y), sell(X2, Y2), X != X2, price(Y), company(X), company(X2), price(Y2).
+-sell(X, Y) :- sell(X2, Y2), X != X2, company(X), price(Y).
+% Rule 7: Agent cannot sell a stock while buying a different stock
+-sell(X, Y) :- buy(X2, Y2), X != X2, price(Y), company(X).
 % Rule 8: Agent cannot sell the same stock more than 1 time that day
-:- sell(X, Y), sold(X).
-% Rule 9: Agent must spend as much of their balance as possible by the end of the day if not all
-:- budget > askprice(Y, X), hour = 8, not sold(X), company(X), price(Y).
-% Rule 10: Agent must sell if a move of >= 5 percent is observed. The duplicate below is for after hours
-sell(X, Y) :- not sold(X), percentagemovetotal(P, X), P >= profitbar, price(Y).
-sell(X, Y) :- not sold(X), percentagemovepost(P, X), P >= profitbar, price(Y), hour >= 4, hour < 8.
+-can_sell(X, Y) :- sold(X), price(Y).
+% Rule 9: Agent can sell after hours if a post position move above the post profit marker is observed.
+can_sell(X, Y) :- not sold(X), percentagemovepost(P, X), P >= post_profit_marker, price(Y), company(X), hour >= 4, hour < 8.
+% Rule 10: Agent can sell during the day if a day position move above the day profit marker is observed.
+can_sell(X, Y) :- not sold(X), percentagemoveday(P, X), P >= day_profit_marker, price(Y), company(X), bought(X), hour >= 9.
+can_sell(X, Y) :- not sold(X), percentagemoveday(P, X), P >= day_profit_marker, price(Y), company(X), bought(X), hour >= 1, hour < 4.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% INFORMATION FOR TSLA %%%
 company(tsla).
 % The bid price for TSLA
-bidprice(38504, tsla).
+bidprice(40535, tsla).
 % The ask price for TSLA
-askprice(38520, tsla).
+askprice(40542, tsla).
 % The bid size for TSLA
-bidsize(19200000, tsla).
+bidsize(14000000, tsla).
 % The ask size for TSLA
-asksize(1200000, tsla).
+asksize(400000, tsla).
 % The high price for TSLA
-highprice(38551, tsla).
+highprice(41168, tsla).
 % The low price for TSLA
-lowprice(38504, tsla).
+lowprice(38278, tsla).
 % The close price for TSLA
-closeprice(38509, tsla).
+closeprice(40416, tsla).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR CART %%%
 company(cart).
 % The bid price for CART
-bidprice(4031, cart).
+bidprice(4026, cart).
 % The ask price for CART
-askprice(4056, cart).
+askprice(4120, cart).
 % The bid size for CART
-bidsize(4000000, cart).
+bidsize(25000000, cart).
 % The ask size for CART
-asksize(2000000, cart).
+asksize(10000000, cart).
 % The high price for CART
-highprice(4031, cart).
+highprice(4171, cart).
 % The low price for CART
 lowprice(3954, cart).
 % The close price for CART
-closeprice(4043, cart).
+closeprice(4103, cart).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR COIN %%%
 company(coin).
 % The bid price for COIN
-bidprice(27031, coin).
+bidprice(28450, coin).
 % The ask price for COIN
-askprice(27100, coin).
+askprice(28500, coin).
 % The bid size for COIN
-bidsize(2800000, coin).
+bidsize(14800000, coin).
 % The ask size for COIN
-asksize(800000, coin).
+asksize(400000, coin).
 % The high price for COIN
-highprice(27100, coin).
+highprice(29257, coin).
 % The low price for COIN
-lowprice(26902, coin).
+lowprice(26816, coin).
 % The close price for COIN
-closeprice(27043, coin).
+closeprice(28405, coin).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR GBX %%%
 company(gbx).
 % The bid price for GBX
-bidprice(4131, gbx).
+bidprice(4207, gbx).
 % The ask price for GBX
-askprice(4218, gbx).
+askprice(4374, gbx).
 % The bid size for GBX
 bidsize(2000000, gbx).
 % The ask size for GBX
-asksize(6000000, gbx).
+asksize(1000000, gbx).
 % The high price for GBX
 highprice(4131, gbx).
 % The low price for GBX
-lowprice(4209, gbx).
+lowprice(4141, gbx).
 % The close price for GBX
-closeprice(4209, gbx).
+closeprice(4291, gbx).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR DASH %%%
 company(dash).
 % The bid price for DASH
-bidprice(19300, dash).
+bidprice(20750, dash).
 % The ask price for DASH
-askprice(19362, dash).
+askprice(20800, dash).
 % The bid size for DASH
-bidsize(400000, dash).
+bidsize(800000, dash).
 % The ask size for DASH
-asksize(400000, dash).
+asksize(2800000, dash).
 % The high price for DASH
-highprice(19313, dash).
+highprice(20907, dash).
 % The low price for DASH
-lowprice(19298, dash).
+lowprice(19290, dash).
 % The close price for DASH
-closeprice(19315, dash).
+closeprice(20701, dash).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR SNAP %%%
 company(snap).
 % The bid price for SNAP
-bidprice(832, snap).
+bidprice(856, snap).
 % The ask price for SNAP
-askprice(833, snap).
+askprice(860, snap).
 % The bid size for SNAP
-bidsize(27000000, snap).
+bidsize(2000000, snap).
 % The ask size for SNAP
-asksize(28000000, snap).
+asksize(1000000, snap).
 % The high price for SNAP
-highprice(832, snap).
+highprice(860, snap).
 % The low price for SNAP
-lowprice(832, snap).
+lowprice(831, snap).
 % The close price for SNAP
-closeprice(832, snap).
+closeprice(854, snap).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR APP %%%
 company(app).
 % The bid price for APP
-bidprice(52947, app).
+bidprice(55779, app).
 % The ask price for APP
-askprice(53000, app).
+askprice(55900, app).
 % The bid size for APP
-bidsize(1600000, app).
+bidsize(2400000, app).
 % The ask size for APP
-asksize(800000, app).
+asksize(3600000, app).
 % The high price for APP
-highprice(53027, app).
+highprice(57027, app).
 % The low price for APP
-lowprice(52947, app).
+lowprice(52900, app).
 % The close price for APP
-closeprice(53041, app).
+closeprice(55769, app).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR IONQ %%%
 company(ionq).
 % The bid price for IONQ
-bidprice(4335, ionq).
+bidprice(4808, ionq).
 % The ask price for IONQ
-askprice(4342, ionq).
+askprice(4825, ionq).
 % The bid size for IONQ
 bidsize(2000000, ionq).
 % The ask size for IONQ
 asksize(1000000, ionq).
 % The high price for IONQ
-highprice(4320, ionq).
+highprice(4851, ionq).
 % The low price for IONQ
 lowprice(4282, ionq).
 % The close price for IONQ
-closeprice(4338, ionq).
+closeprice(4716, ionq).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR TOST %%%
 company(tost).
 % The bid price for TOST
-bidprice(3606, tost).
+bidprice(3601, tost).
 % The ask price for TOST
-askprice(3617, tost).
+askprice(3606, tost).
 % The bid size for TOST
-bidsize(4000000, tost).
+bidsize(10000000, tost).
 % The ask size for TOST
-asksize(2000000, tost).
+asksize(5000000, tost).
 % The high price for TOST
-highprice(3606, tost).
+highprice(3738, tost).
 % The low price for TOST
-lowprice(3600, tost).
+lowprice(3582, tost).
 % The close price for TOST
-closeprice(3613, tost).
+closeprice(3581, tost).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR HIMS %%%
 company(hims).
 % The bid price for HIMS
-bidprice(3518, hims).
+bidprice(3740, hims).
 % The ask price for HIMS
-askprice(3525, hims).
+askprice(3749, hims).
 % The bid size for HIMS
 bidsize(1000000, hims).
 % The ask size for HIMS
-asksize(6000000, hims).
+asksize(11000000, hims).
 % The high price for HIMS
-highprice(3518, hims).
+highprice(3799, hims).
 % The low price for HIMS
-lowprice(3514, hims).
+lowprice(3493, hims).
 % The close price for HIMS
-closeprice(3518, hims).
+closeprice(3702, hims).
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% INFORMATION FOR CMG %%%
 company(cmg).
 % The bid price for CMG
-bidprice(3108, cmg).
+bidprice(3167, cmg).
 % The ask price for CMG
-askprice(3119, cmg).
+askprice(3162, cmg).
 % The bid size for CMG
-bidsize(57000000, cmg).
+bidsize(1000000, cmg).
 % The ask size for CMG
 asksize(1000000, cmg).
 % The high price for CMG
-highprice(3108, cmg).
+highprice(3146, cmg).
 % The low price for CMG
-lowprice(3108, cmg).
+lowprice(3101, cmg).
 % The close price for CMG
-closeprice(3112, cmg).
+closeprice(3157, cmg).
 %%%%%%%%%%%%%%%%%%%%%%%%
 
 bought(coin).
 bought(dash).
+bought(tost).
+bought(tsla).
+bought(cmg).
+bought(gbx).
+bought(ionq).
+bought(hims).
+bought(cart).
+bought(app).
+bought(snap).
 
-sold(none).
+sold(dash).
+sold(coin).
+sold(tsla).
+sold(tost).
+sold(cart).
+sold(gbx).
+sold(snap).
+sold(app).
+sold(ionq).
+sold(hims).
+sold(cmg).
 
 % The agent's position status of TSLA
 positionmovetotal(0, tsla).
@@ -279,60 +343,57 @@ positionmovepost(0, hims).
 positionmovetotal(0, cmg).
 positionmovepost(0, cmg).
 
-% The current hour
-#const hour=9.
-% The current minute
-#const minute=32.
-
 %%% PERCENTAGE PREDICATES FOR TSLA %%%
-percentagemovetotal(-12, tsla).
-percentagemovepost(-473, tsla).
+percentagemoveday(489, tsla).
+percentagemovepost(29, tsla).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR CART %%%
-percentagemovetotal(0, cart).
-percentagemovepost(-175, cart).
+percentagemoveday(-12, cart).
+percentagemovepost(-187, cart).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR COIN %%%
-percentagemovetotal(-25, coin).
-percentagemovepost(-483, coin).
+percentagemoveday(474, coin).
+percentagemovepost(15, coin).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR GBX %%%
-percentagemovetotal(0, gbx).
-percentagemovepost(-372, gbx).
+percentagemoveday(180, gbx).
+percentagemovepost(-195, gbx).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR DASH %%%
-percentagemovetotal(-6, dash).
-percentagemovepost(-676, dash).
+percentagemoveday(692, dash).
+percentagemovepost(23, dash).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR SNAP %%%
-percentagemovetotal(0, snap).
-percentagemovepost(-263, snap).
+percentagemoveday(280, snap).
+percentagemovepost(17, snap).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR APP %%%
-percentagemovetotal(-15, app).
-percentagemovepost(-506, app).
+percentagemoveday(493, app).
+percentagemovepost(1, app).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR IONQ %%%
-percentagemovetotal(34, ionq).
-percentagemovepost(-807, ionq).
+percentagemoveday(1014, ionq).
+percentagemovepost(195, ionq).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR TOST %%%
-percentagemovetotal(0, tost).
-percentagemovepost(69, tost).
+percentagemoveday(-13, tost).
+percentagemovepost(55, tost).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR HIMS %%%
-percentagemovetotal(0, hims).
-percentagemovepost(-497, hims).
+percentagemoveday(593, hims).
+percentagemovepost(102, hims).
 %%%%%%%%%%%%%%%%%%%%%%
 %%% PERCENTAGE PREDICATES FOR CMG %%%
-percentagemovetotal(0, cmg).
-percentagemovepost(-155, cmg).
+percentagemoveday(186, cmg).
+percentagemovepost(31, cmg).
 %%%%%%%%%%%%%%%%%%%%%%
 
 % Current profit
-#const profit=0.
+#const profit=40507.
 
 #show monitor/1.
 #show buy/2.
 #show sell/2.
+#show sell_all/2.
+#show force_buy/2.
 

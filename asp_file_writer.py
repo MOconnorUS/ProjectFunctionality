@@ -42,12 +42,12 @@ def file_writer(
 
     with open(ASP_ENCODING_FILE_PATH, 'w') as file:
         iterative_writer(ASP_HEADER_INFORMATION, file)
+        iterative_writer(time_predicates, file)
         iterative_writer(ASP_ENCODING, file)
         iterative_writer(company_predicates, file)
         iterative_writer(bought_predicates, file)
         iterative_writer(sold_predicates, file)
         iterative_writer(position_predicates, file)
-        iterative_writer(time_predicates, file)
         iterative_writer(percentage_move_predicates, file)
         iterative_writer(profit_predicate, file)
         iterative_writer(ASP_FOOTER_INFORMATION, file)

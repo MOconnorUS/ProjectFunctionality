@@ -46,9 +46,9 @@ def parse_answer_set(answer_set: list, company_info: dict) -> None:
     """
 
     for ans in answer_set:
-        if 'monitor' in ans:
+        if 'monitor' in ans or ans == '':
             continue
-
+        
         temp = ans[ans.find('(') + 1 : -1].split(',')
         temp_num = numeric_conversion(temp[1])
 

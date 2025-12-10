@@ -16,7 +16,8 @@ from asp_file_functions import (
     percentage_move_predicates, 
     profit_predicate,
     bought_sold_predicates,
-    position_move_predicates
+    position_move_predicates,
+    print_final_profit
 )
 from asp_output_parsing import (
     run_clingo,
@@ -155,8 +156,7 @@ def main() -> None:
         parse_answer_set(answer_set, company_info)
         # break
 
-    close_workbook()
-    
+    print_final_profit()
     return None
 
 if __name__ == '__main__':
