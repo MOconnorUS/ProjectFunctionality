@@ -39,6 +39,10 @@ DAY_ONE_COMPANIES = 'FUBO,ROKU,AFRM,ABNB,ELF,NFLX,SPOT,ARM,GTLB,VEEV,XYZ'
 DAY_TWO_COMPANIES = 'TSLA,CART,COIN,GBX,DASH,SNAP,APP,IONQ,TOST,HIMS,CMG'
 DAY_THREE_COMPANIES = 'SBUX,CVNA,META,PLTR,FFIV,INTC,IBM,SAP,IBKR,NKE,ADBE'
 
+END_DAY_ONE = '6723'
+END_DAY_TWO = '6401'
+END_DAY_THREE = '7323'
+
 def select_day() -> str:
     """
     Prompt the user to select a day (one, two, or three) to run that respective day.
@@ -112,21 +116,25 @@ def main() -> None:
     init_company_info(company_list)
 
     wb_path = ''
+    end_cell = ''
 
     if day == 'one':
         wb_path = DAY_ONE_PATHING
+        end_cell = END_DAY_ONE
 
     if day == 'two':
         wb_path = DAY_TWO_PATHING
+        end_cell = END_DAY_TWO
 
     if day == 'three':
         wb_path = DAY_THREE_PATHING
+        end_cell = END_DAY_THREE
 
     ws = open_workbook(wb_path)
 
     bid_dict = read_bids_for_percentages(ws, company_list)
 
-    while company_info["Start Cell"] != '6401':
+    while company_info["Start Cell"] != end_cell:
         time = read_time_from_file(ws, company_info["Start Cell"])
         read_file(ws, company_info)
 

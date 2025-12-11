@@ -3,19 +3,19 @@
 % KRR Methodology: Temporal Projection
 
 % The current hour
-#const hour=8.
+#const hour=7.
 % The current minute
-#const minute=0.
+#const minute=59.
 
-% Agent's budget'
-#const budget=3627300.
+% Agent's budget
+#const budget=2365000.
 % The stoploss is -2.5 percent
 #const stoploss=-250.
 % The day profit_marker is 5 percent
 #const day_profit_marker=500.
 % The post profit_marker is 2.5 percent
 #const post_profit_marker=250.
-% The AM Buy Marker is -0.05 percent (will be from 930 - 12 if i make others)
+% The Buy Marker is -0.05 percent
 #const buy_marker=-5.
 % A backup marker incase the agent has not purchased a stock and market hours have closed
 #const backup_buy_marker=5.
@@ -25,9 +25,10 @@ can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P < buy_ma
 % Agent can buy company X at askprice Y if the post percentage move is less than the buy marker and we are after hours
 can_buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buy_marker, hour >= 5, hour < 8, not bought(X).
 can_buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buy_marker, hour = 4, minute > 10, not bought(X).
+% Force buy is an output predicate to force the agent to purchase remaining stocks
 % Agent can buy company X at askprice Y if the time is between 5:45 and 5:55 and the company has not been purchased - this is intended to be a force buy
 force_buy(X, Y)  :- company(X), askprice(Y, X), hour = 5, minute >= 45, minute <= 55, not bought(X).
-% Rule 11: Agent will can company X if its percentage move after hours is between the buy marker and the backup buy marker and time is between 4:01 - 4:10
+% Agent can company X if its percentage move after hours is between the buy marker and the backup buy marker and time is between 4:01 - 4:10, this is intended to give a buying opportunity aside from the later force buy
 can_buy(X, Y) :- company(X), askprice(Y, X), not bought(X), percentagemovepost(P, X), P >= buy_marker, P <= backup_buy_marker, hour = 4, minute <= 10, minute >= 1.
 % Agent cannot buy company X at askprice Y if the day percentage move is greater than 0 and we are during market hours
 -can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P > 0, hour >= 9, not bought(X).
@@ -43,6 +44,7 @@ can_buy(X, Y) :- company(X), askprice(Y, X), not bought(X), percentagemovepost(P
 -can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P <= 0, P > buy_marker, hour = 4, minute > 10, not bought(X).
 % Agent cannot buy company X at askprice Y if X has been purchased
 -can_buy(X, Y) :- bought(X), askprice(Y, X).
+% Buying is an output predicate derived from the above can_buy predicates
 % Agent either buys or doesn't buy company X at askprice Y if can_buy(X, Y)
 buy(X, Y) | -buy(X, Y) :- can_buy(X, Y).
 % Agent cannot buy company X at askprice Y if -can_buy(X, Y)
@@ -52,9 +54,10 @@ can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X)
 % Agent can sell company X at bidprice Y if the position move post is less than the stoploss and we are after hours
 can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P <= stoploss, hour >= 4, hour < 8.
 % Agent cannot sell company X at bidprice Y if the position move total is greater than the stoploss
--can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > stoploss.
+-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > stoploss, P < day_profit_marker.
 % Agent cannot sell company X at bidprice Y if the position move post is greater than the stoploss and we are after hours
--can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P > stoploss, hour >= 4, hour < 8.
+-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P2, X), P2 > stoploss, positionmovepost(P, X), P > stoploss, P < post_profit_marker, hour >= 4, hour < 8.
+% Selling is an output predicate derived from the above can_sell predicates
 % Agent either sells or does not sell company X at bidprice Y
 sell(X, Y) | -sell(X, Y) :- can_sell(X, Y).
 % Agent cannot sell company X at bidprice Y if -can_sell(X, Y)
@@ -65,12 +68,13 @@ sell(X, Y) | -sell(X, Y) :- can_sell(X, Y).
 -can_monitor(X) :- sell(X, Y), price(Y).
 % Agent can monitor company X as long as it is unknow that they cannot monitor X
 can_monitor(X) :- company(X), not -can_monitor(X).
+% Monitor is an output predicate derived from the can_monitor predicates above
 % Agent monitors company X if can_monitor(X)
 monitor(X) :- can_monitor(X).
 % Agent cannot monitor company X if -can_monitor(X)
 -monitor(X) :- -can_monitor(X).
 % Agent wil monitor a company X if it has been bought and sold
-monitor(X) :- bought(X), sold(X).% X is a price, either ask or bid
+monitor(X) :- bought(X), sold(X).% Y is a price, either ask or bid
 price(Y) :- askprice(Y, X).
 price(Y) :- bidprice(Y, X).
 %%%%%%%%%%%%%%%%%%%% RULES %%%%%%%%%%%%%%%%%%%%
@@ -97,299 +101,300 @@ can_sell(X, Y) :- not sold(X), percentagemoveday(P, X), P >= day_profit_marker, 
 can_sell(X, Y) :- not sold(X), percentagemoveday(P, X), P >= day_profit_marker, price(Y), company(X), bought(X), hour >= 1, hour < 4.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%% INFORMATION FOR TSLA %%%
-company(tsla).
-% The bid price for TSLA
-bidprice(40535, tsla).
-% The ask price for TSLA
-askprice(40542, tsla).
-% The bid size for TSLA
-bidsize(14000000, tsla).
-% The ask size for TSLA
-asksize(400000, tsla).
-% The high price for TSLA
-highprice(41168, tsla).
-% The low price for TSLA
-lowprice(38278, tsla).
-% The close price for TSLA
-closeprice(40416, tsla).
+%%% Below are all input predicates and their English descriptions. They encompass the company, ask price, bid price, ask size, bid size, high price, low price, close price, and movement percentages.
+%%% INFORMATION FOR SBUX %%%
+company(sbux).
+% The bid price for SBUX
+bidprice(8506, sbux).
+% The ask price for SBUX
+askprice(8530, sbux).
+% The bid size for SBUX
+bidsize(2000000, sbux).
+% The ask size for SBUX
+asksize(15000000, sbux).
+% The high price for SBUX
+highprice(8648, sbux).
+% The low price for SBUX
+lowprice(8480, sbux).
+% The close price for SBUX
+closeprice(8509, sbux).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR CART %%%
-company(cart).
-% The bid price for CART
-bidprice(4026, cart).
-% The ask price for CART
-askprice(4120, cart).
-% The bid size for CART
-bidsize(25000000, cart).
-% The ask size for CART
-asksize(10000000, cart).
-% The high price for CART
-highprice(4171, cart).
-% The low price for CART
-lowprice(3954, cart).
-% The close price for CART
-closeprice(4103, cart).
+%%% INFORMATION FOR CVNA %%%
+company(cvna).
+% The bid price for CVNA
+bidprice(43900, cvna).
+% The ask price for CVNA
+askprice(43948, cvna).
+% The bid size for CVNA
+bidsize(5600000, cvna).
+% The ask size for CVNA
+asksize(5200000, cvna).
+% The high price for CVNA
+highprice(40758, cvna).
+% The low price for CVNA
+lowprice(39721, cvna).
+% The close price for CVNA
+closeprice(39987, cvna).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR COIN %%%
-company(coin).
-% The bid price for COIN
-bidprice(28450, coin).
-% The ask price for COIN
-askprice(28500, coin).
-% The bid size for COIN
-bidsize(14800000, coin).
-% The ask size for COIN
-asksize(400000, coin).
-% The high price for COIN
-highprice(29257, coin).
-% The low price for COIN
-lowprice(26816, coin).
-% The close price for COIN
-closeprice(28405, coin).
+%%% INFORMATION FOR META %%%
+company(meta).
+% The bid price for META
+bidprice(67180, meta).
+% The ask price for META
+askprice(67178, meta).
+% The bid size for META
+bidsize(400000, meta).
+% The ask size for META
+asksize(400000, meta).
+% The high price for META
+highprice(67303, meta).
+% The low price for META
+lowprice(66247, meta).
+% The close price for META
+closeprice(67331, meta).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR GBX %%%
-company(gbx).
-% The bid price for GBX
-bidprice(4207, gbx).
-% The ask price for GBX
-askprice(4374, gbx).
-% The bid size for GBX
-bidsize(2000000, gbx).
-% The ask size for GBX
-asksize(1000000, gbx).
-% The high price for GBX
-highprice(4131, gbx).
-% The low price for GBX
-lowprice(4141, gbx).
-% The close price for GBX
-closeprice(4291, gbx).
+%%% INFORMATION FOR PLTR %%%
+company(pltr).
+% The bid price for PLTR
+bidprice(18158, pltr).
+% The ask price for PLTR
+askprice(18170, pltr).
+% The bid size for PLTR
+bidsize(4000000, pltr).
+% The ask size for PLTR
+asksize(13000000, pltr).
+% The high price for PLTR
+highprice(18120, pltr).
+% The low price for PLTR
+lowprice(17716, pltr).
+% The close price for PLTR
+closeprice(18176, pltr).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR DASH %%%
-company(dash).
-% The bid price for DASH
-bidprice(20750, dash).
-% The ask price for DASH
-askprice(20800, dash).
-% The bid size for DASH
-bidsize(800000, dash).
-% The ask size for DASH
-asksize(2800000, dash).
-% The high price for DASH
-highprice(20907, dash).
-% The low price for DASH
-lowprice(19290, dash).
-% The close price for DASH
-closeprice(20701, dash).
+%%% INFORMATION FOR FFIV %%%
+company(ffiv).
+% The bid price for FFIV
+bidprice(24533, ffiv).
+% The ask price for FFIV
+askprice(24981, ffiv).
+% The bid size for FFIV
+bidsize(7600000, ffiv).
+% The ask size for FFIV
+asksize(1600000, ffiv).
+% The high price for FFIV
+highprice(24858, ffiv).
+% The low price for FFIV
+lowprice(24303, ffiv).
+% The close price for FFIV
+closeprice(24812, ffiv).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR SNAP %%%
-company(snap).
-% The bid price for SNAP
-bidprice(856, snap).
-% The ask price for SNAP
-askprice(860, snap).
-% The bid size for SNAP
-bidsize(2000000, snap).
-% The ask size for SNAP
-asksize(1000000, snap).
-% The high price for SNAP
-highprice(860, snap).
-% The low price for SNAP
-lowprice(831, snap).
-% The close price for SNAP
-closeprice(854, snap).
+%%% INFORMATION FOR INTC %%%
+company(intc).
+% The bid price for INTC
+bidprice(4143, intc).
+% The ask price for INTC
+askprice(4142, intc).
+% The bid size for INTC
+bidsize(2000000, intc).
+% The ask size for INTC
+asksize(5000000, intc).
+% The high price for INTC
+highprice(4281, intc).
+% The low price for INTC
+lowprice(4115, intc).
+% The close price for INTC
+closeprice(4142, intc).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR APP %%%
-company(app).
-% The bid price for APP
-bidprice(55779, app).
-% The ask price for APP
-askprice(55900, app).
-% The bid size for APP
-bidsize(2400000, app).
-% The ask size for APP
-asksize(3600000, app).
-% The high price for APP
-highprice(57027, app).
-% The low price for APP
-lowprice(52900, app).
-% The close price for APP
-closeprice(55769, app).
+%%% INFORMATION FOR IBM %%%
+company(ibm).
+% The bid price for IBM
+bidprice(30729, ibm).
+% The ask price for IBM
+askprice(30750, ibm).
+% The bid size for IBM
+bidsize(800000, ibm).
+% The ask size for IBM
+asksize(4400000, ibm).
+% The high price for IBM
+highprice(31151, ibm).
+% The low price for IBM
+lowprice(30718, ibm).
+% The close price for IBM
+closeprice(30807, ibm).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR IONQ %%%
-company(ionq).
-% The bid price for IONQ
-bidprice(4808, ionq).
-% The ask price for IONQ
-askprice(4825, ionq).
-% The bid size for IONQ
-bidsize(2000000, ionq).
-% The ask size for IONQ
-asksize(1000000, ionq).
-% The high price for IONQ
-highprice(4851, ionq).
-% The low price for IONQ
-lowprice(4282, ionq).
-% The close price for IONQ
-closeprice(4716, ionq).
+%%% INFORMATION FOR SAP %%%
+company(sap).
+% The bid price for SAP
+bidprice(24684, sap).
+% The ask price for SAP
+askprice(24776, sap).
+% The bid size for SAP
+bidsize(4800000, sap).
+% The ask size for SAP
+asksize(400000, sap).
+% The high price for SAP
+highprice(25006, sap).
+% The low price for SAP
+lowprice(24654, sap).
+% The close price for SAP
+closeprice(24720, sap).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR TOST %%%
-company(tost).
-% The bid price for TOST
-bidprice(3601, tost).
-% The ask price for TOST
-askprice(3606, tost).
-% The bid size for TOST
-bidsize(10000000, tost).
-% The ask size for TOST
-asksize(5000000, tost).
-% The high price for TOST
-highprice(3738, tost).
-% The low price for TOST
-lowprice(3582, tost).
-% The close price for TOST
-closeprice(3581, tost).
+%%% INFORMATION FOR IBKR %%%
+company(ibkr).
+% The bid price for IBKR
+bidprice(6455, ibkr).
+% The ask price for IBKR
+askprice(6478, ibkr).
+% The bid size for IBKR
+bidsize(11000000, ibkr).
+% The ask size for IBKR
+asksize(27000000, ibkr).
+% The high price for IBKR
+highprice(6600, ibkr).
+% The low price for IBKR
+lowprice(6456, ibkr).
+% The close price for IBKR
+closeprice(6448, ibkr).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR HIMS %%%
-company(hims).
-% The bid price for HIMS
-bidprice(3740, hims).
-% The ask price for HIMS
-askprice(3749, hims).
-% The bid size for HIMS
-bidsize(1000000, hims).
-% The ask size for HIMS
-asksize(11000000, hims).
-% The high price for HIMS
-highprice(3799, hims).
-% The low price for HIMS
-lowprice(3493, hims).
-% The close price for HIMS
-closeprice(3702, hims).
+%%% INFORMATION FOR NKE %%%
+company(nke).
+% The bid price for NKE
+bidprice(6581, nke).
+% The ask price for NKE
+askprice(6587, nke).
+% The bid size for NKE
+bidsize(1000000, nke).
+% The ask size for NKE
+asksize(2000000, nke).
+% The high price for NKE
+highprice(6584, nke).
+% The low price for NKE
+lowprice(6491, nke).
+% The close price for NKE
+closeprice(6588, nke).
 %%%%%%%%%%%%%%%%%%%%%%%%
-%%% INFORMATION FOR CMG %%%
-company(cmg).
-% The bid price for CMG
-bidprice(3167, cmg).
-% The ask price for CMG
-askprice(3162, cmg).
-% The bid size for CMG
-bidsize(1000000, cmg).
-% The ask size for CMG
-asksize(1000000, cmg).
-% The high price for CMG
-highprice(3146, cmg).
-% The low price for CMG
-lowprice(3101, cmg).
-% The close price for CMG
-closeprice(3157, cmg).
+%%% INFORMATION FOR ADBE %%%
+company(adbe).
+% The bid price for ADBE
+bidprice(34720, adbe).
+% The ask price for ADBE
+askprice(34788, adbe).
+% The bid size for ADBE
+bidsize(400000, adbe).
+% The ask size for ADBE
+asksize(400000, adbe).
+% The high price for ADBE
+highprice(34774, adbe).
+% The low price for ADBE
+lowprice(32971, adbe).
+% The close price for ADBE
+closeprice(34633, adbe).
 %%%%%%%%%%%%%%%%%%%%%%%%
 
-bought(coin).
-bought(dash).
-bought(tost).
-bought(tsla).
-bought(cmg).
-bought(gbx).
-bought(ionq).
-bought(hims).
-bought(cart).
-bought(app).
-bought(snap).
+% The agent's position status of SBUX
+positionmovetotal(0, sbux).
+positionmovepost(0, sbux).
+% The agent's position status of CVNA
+positionmovetotal(0, cvna).
+positionmovepost(0, cvna).
+% The agent's position status of META
+positionmovetotal(0, meta).
+positionmovepost(0, meta).
+% The agent's position status of PLTR
+positionmovetotal(0, pltr).
+positionmovepost(0, pltr).
+% The agent's position status of FFIV
+positionmovetotal(0, ffiv).
+positionmovepost(0, ffiv).
+% The agent's position status of INTC
+positionmovetotal(0, intc).
+positionmovepost(0, intc).
+% The agent's position status of IBM
+positionmovetotal(0, ibm).
+positionmovepost(0, ibm).
+% The agent's position status of SAP
+positionmovetotal(0, sap).
+positionmovepost(0, sap).
+% The agent's position status of IBKR
+positionmovetotal(0, ibkr).
+positionmovepost(0, ibkr).
+% The agent's position status of NKE
+positionmovetotal(0, nke).
+positionmovepost(0, nke).
+% The agent's position status of ADBE
+positionmovetotal(0, adbe).
+positionmovepost(0, adbe).
 
-sold(dash).
-sold(coin).
-sold(tsla).
-sold(tost).
-sold(cart).
-sold(gbx).
-sold(snap).
-sold(app).
-sold(ionq).
-sold(hims).
-sold(cmg).
+%%% PERCENTAGE PREDICATES FOR SBUX %%%
+percentagemoveday(45, sbux).
+percentagemovepost(-3, sbux).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR CVNA %%%
+percentagemoveday(952, cvna).
+percentagemovepost(978, cvna).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR META %%%
+percentagemoveday(124, meta).
+percentagemovepost(-22, meta).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR PLTR %%%
+percentagemoveday(183, pltr).
+percentagemovepost(-9, pltr).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR FFIV %%%
+percentagemoveday(139, ffiv).
+percentagemovepost(-112, ffiv).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR INTC %%%
+percentagemoveday(67, intc).
+percentagemovepost(2, intc).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR IBM %%%
+percentagemoveday(-42, ibm).
+percentagemovepost(-25, ibm).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR SAP %%%
+percentagemoveday(-4, sap).
+percentagemovepost(-14, sap).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR IBKR %%%
+percentagemoveday(-151, ibkr).
+percentagemovepost(10, ibkr).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR NKE %%%
+percentagemoveday(21, nke).
+percentagemovepost(-10, nke).
+%%%%%%%%%%%%%%%%%%%%%%
+%%% PERCENTAGE PREDICATES FOR ADBE %%%
+percentagemoveday(504, adbe).
+percentagemovepost(24, adbe).
+%%%%%%%%%%%%%%%%%%%%%%
 
-% The agent's position status of TSLA
-positionmovetotal(0, tsla).
-positionmovepost(0, tsla).
-% The agent's position status of CART
-positionmovetotal(0, cart).
-positionmovepost(0, cart).
-% The agent's position status of COIN
-positionmovetotal(0, coin).
-positionmovepost(0, coin).
-% The agent's position status of GBX
-positionmovetotal(0, gbx).
-positionmovepost(0, gbx).
-% The agent's position status of DASH
-positionmovetotal(0, dash).
-positionmovepost(0, dash).
-% The agent's position status of SNAP
-positionmovetotal(0, snap).
-positionmovepost(0, snap).
-% The agent's position status of APP
-positionmovetotal(0, app).
-positionmovepost(0, app).
-% The agent's position status of IONQ
-positionmovetotal(0, ionq).
-positionmovepost(0, ionq).
-% The agent's position status of TOST
-positionmovetotal(0, tost).
-positionmovepost(0, tost).
-% The agent's position status of HIMS
-positionmovetotal(0, hims).
-positionmovepost(0, hims).
-% The agent's position status of CMG
-positionmovetotal(0, cmg).
-positionmovepost(0, cmg).
+bought(ibkr).
+bought(nke).
+bought(meta).
+bought(ibm).
+bought(sap).
+bought(ffiv).
+bought(intc).
+bought(pltr).
+bought(adbe).
+bought(sbux).
+bought(cvna).
 
-%%% PERCENTAGE PREDICATES FOR TSLA %%%
-percentagemoveday(489, tsla).
-percentagemovepost(29, tsla).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR CART %%%
-percentagemoveday(-12, cart).
-percentagemovepost(-187, cart).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR COIN %%%
-percentagemoveday(474, coin).
-percentagemovepost(15, coin).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR GBX %%%
-percentagemoveday(180, gbx).
-percentagemovepost(-195, gbx).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR DASH %%%
-percentagemoveday(692, dash).
-percentagemovepost(23, dash).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR SNAP %%%
-percentagemoveday(280, snap).
-percentagemovepost(17, snap).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR APP %%%
-percentagemoveday(493, app).
-percentagemovepost(1, app).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR IONQ %%%
-percentagemoveday(1014, ionq).
-percentagemovepost(195, ionq).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR TOST %%%
-percentagemoveday(-13, tost).
-percentagemovepost(55, tost).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR HIMS %%%
-percentagemoveday(593, hims).
-percentagemovepost(102, hims).
-%%%%%%%%%%%%%%%%%%%%%%
-%%% PERCENTAGE PREDICATES FOR CMG %%%
-percentagemoveday(186, cmg).
-percentagemovepost(31, cmg).
-%%%%%%%%%%%%%%%%%%%%%%
+sold(sbux).
+sold(cvna).
+sold(meta).
+sold(pltr).
+sold(ffiv).
+sold(intc).
+sold(ibm).
+sold(sap).
+sold(ibkr).
+sold(nke).
+sold(adbe).
 
 % Current profit
-#const profit=40507.
+#const profit=19327.
 
 #show monitor/1.
 #show buy/2.

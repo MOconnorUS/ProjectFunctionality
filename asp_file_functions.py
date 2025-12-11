@@ -25,7 +25,7 @@ def asp_float_modification(value: float) -> int:
     return int(value * 100)
 print(f'INITIAL BUDGET: ${BUDGET}')
 ASP_ENCODING = [
-    "% Agent's budget'",
+    "% Agent's budget",
     f"#const budget={asp_float_modification(BUDGET)}.",
 
     "% The stoploss is -2.5 percent",
@@ -37,14 +37,11 @@ ASP_ENCODING = [
     "% The post profit_marker is 2.5 percent",
     "#const post_profit_marker=250.",
 
-    "% The AM Buy Marker is -0.05 percent (will be from 930 - 12 if i make others)",
+    "% The Buy Marker is -0.05 percent",
     "#const buy_marker=-5.",
 
     "% A backup marker incase the agent has not purchased a stock and market hours have closed",
     "#const backup_buy_marker=5.",
-
-    # "% Agent buys company X at ask price Y",
-    # "buy(X, Y) :- company(X), askprice(Y, X).",
 
     "% Agent can buy company X at askprice Y if the day percentage move is less than the AM buy marker and we are during market hours",
     "can_buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P < buy_marker, not bought(X), hour >= 9.",
@@ -54,10 +51,11 @@ ASP_ENCODING = [
     "can_buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buy_marker, hour >= 5, hour < 8, not bought(X).",
     "can_buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buy_marker, hour = 4, minute > 10, not bought(X).",
     
+    "% Force buy is an output predicate to force the agent to purchase remaining stocks",
     "% Agent can buy company X at askprice Y if the time is between 5:45 and 5:55 and the company has not been purchased - this is intended to be a force buy",
     "force_buy(X, Y)  :- company(X), askprice(Y, X), hour = 5, minute >= 45, minute <= 55, not bought(X).",
     
-    "% Rule 11: Agent will can company X if its percentage move after hours is between the buy marker and the backup buy marker and time is between 4:01 - 4:10",
+    "% Agent can company X if its percentage move after hours is between the buy marker and the backup buy marker and time is between 4:01 - 4:10, this is intended to give a buying opportunity aside from the later force buy",
     "can_buy(X, Y) :- company(X), askprice(Y, X), not bought(X), percentagemovepost(P, X), P >= buy_marker, P <= backup_buy_marker, hour = 4, minute <= 10, minute >= 1.",
 
     "% Agent cannot buy company X at askprice Y if the day percentage move is greater than 0 and we are during market hours",
@@ -66,8 +64,6 @@ ASP_ENCODING = [
 
     "% Agent cannot buy company X at askprice Y if the post percentage move is greater than 0 and we are after hours",
     "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0, hour >= 5, hour < 8, not bought(X).",
-    # "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0, hour = 5, minute < 45, not bought(X).",
-    # "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0, hour = 5, minute > 55, not bought(X).",
     "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0, hour = 4, minute > 10, not bought(X).",
 
     "% Agent cannot buy company X at askprice Y if the day percentage move is less than 0 but greater than the AM buy marker and we are during market hours",
@@ -76,28 +72,17 @@ ASP_ENCODING = [
     
     "% Agent cannot buy company X at askprice Y if the post percentage move is less than 0 but greater than the buy marker and we are after hours",
     "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P <= 0, P > buy_marker, hour >= 5, hour < 8, not bought(X).",
-    # "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P <= 0, P > buy_marker, hour = 5, minute < 45, not bought(X).",
-    # "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P <= 0, P > buy_marker, hour = 5, minute > 55, not bought(X).",
     "-can_buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P <= 0, P > buy_marker, hour = 4, minute > 10, not bought(X).",
 
     "% Agent cannot buy company X at askprice Y if X has been purchased",
     "-can_buy(X, Y) :- bought(X), askprice(Y, X).",
 
+    "% Buying is an output predicate derived from the above can_buy predicates",
     "% Agent either buys or doesn't buy company X at askprice Y if can_buy(X, Y)",
     "buy(X, Y) | -buy(X, Y) :- can_buy(X, Y).",
 
     "% Agent cannot buy company X at askprice Y if -can_buy(X, Y)",
     "-buy(X, Y) :- -can_buy(X, Y).",
-
-    # "-buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P <= 0, P > buy_marker.",
-    # "buy(X, Y)  :- company(X), askprice(Y, X), percentagemovepost(P, X), P < buy_marker, hour >= 4, hour < 8, not bought(X).",
-    # "-buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P > 0.",
-    # "-buy(X, Y) :- company(X), askprice(Y, X), percentagemovepost(P, X), P < 0, P > buy_marker, hour >= 4, hour < 8.",
-    # "-buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P <= 0, P > buy_marker, percentagemovepost(P2, X), P2 < buy_marker, hour <= 4.",
-    # "-buy(X, Y) :- company(X), askprice(Y, X), percentagemoveday(P, X), P <= 0, P > buy_marker, percentagemovepost(P2, X), P2 < buy_marker, hour > 8.",
-
-    # "% Agent sells company X at bid price Y",
-    # "sell(X, Y) :- company(X), bidprice(Y, X), bought(X).",
 
     "% Agent can sell company X at bidprice Y if the position move total is less than the stoploss",
     "can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P <= stoploss.",
@@ -106,34 +91,17 @@ ASP_ENCODING = [
     "can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P <= stoploss, hour >= 4, hour < 8.",
 
     "% Agent cannot sell company X at bidprice Y if the position move total is greater than the stoploss",
-    "-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > stoploss.",
+    "-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > stoploss, P < day_profit_marker.",
 
     "% Agent cannot sell company X at bidprice Y if the position move post is greater than the stoploss and we are after hours",
-    "-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P > stoploss, hour >= 4, hour < 8.",
+    "-can_sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P2, X), P2 > stoploss, positionmovepost(P, X), P > stoploss, P < post_profit_marker, hour >= 4, hour < 8.",
 
+    "% Selling is an output predicate derived from the above can_sell predicates",
     "% Agent either sells or does not sell company X at bidprice Y",
     "sell(X, Y) | -sell(X, Y) :- can_sell(X, Y).",
 
     "% Agent cannot sell company X at bidprice Y if -can_sell(X, Y)",
     "-sell(X, Y) :- -can_sell(X, Y).",
-
-    # "sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovetotal(P, X), P > 0, P <= stoploss.",
-    # "sell(X, Y) :- company(X), bidprice(Y, X), bought(X), positionmovepost(P, X), P > 0, P <= stoploss, hour >= 4, hour < 8.",
-
-    # "% Agent choose to monitor company X",
-    # "monitor(X) :- company(X).",
-
-    # "% Agent can monitor company X if agent is not selling company X",
-    # "can_monitor(X) :- company(X), -sell(X, Y), price(Y).",
-    
-    # "% Agent can monitor company X if agent is not buying company X",
-    # "can_monitor(X) :- company(X), -buy(X, Y), price(Y).",
-
-    # "% Agent cannot monitor company X if agent is buying company X at price Y",
-    # "-can_monitor(X) :- company(X), buy(X, Y), price(Y).",
-
-    # "% Agent cannot monitor company X if agent is selling company X at price Y",
-    # "-can_monitor(X) :- company(X), sell(X, Y), price(Y).",
 
     "% Agent cannot monitor company X if agent is buying company X at price Y",
     "-can_monitor(X) :- buy(X, Y), price(Y).",
@@ -144,6 +112,7 @@ ASP_ENCODING = [
     "% Agent can monitor company X as long as it is unknow that they cannot monitor X",
     "can_monitor(X) :- company(X), not -can_monitor(X).",
 
+    "% Monitor is an output predicate derived from the can_monitor predicates above",
     "% Agent monitors company X if can_monitor(X)",
     "monitor(X) :- can_monitor(X).",
 
@@ -153,11 +122,7 @@ ASP_ENCODING = [
     "% Agent wil monitor a company X if it has been bought and sold",
     "monitor(X) :- bought(X), sold(X)."
 
-    # "monitor(X) :- company(X), -buy(X, Y), price(Y).",
-    # "monitor(X) :- company(X), bought(X), not buy(X, Y), price(Y).",
-    # "monitor(X) :- company(X), sold(X), not sell(X, Y), price(Y).",
-
-    '% X is a price, either ask or bid',
+    '% Y is a price, either ask or bid',
     'price(Y) :- askprice(Y, X).',
     'price(Y) :- bidprice(Y, X).',
 
@@ -170,7 +135,6 @@ ASP_ENCODING = [
     "-can_buy(X, Y) :- bought(X), price(Y).",
 
     "% Rule 3: Agent cannot buy two different stocks at the same time",
-    # "-can_buy(X, Y) :- buy(X2, Y2), X != X2, price(Y), company(X).",
     ":- buy(X, Y), buy(X2, Y2), company(X), price(Y), company(X2), price(Y2), X != X2.",
 
     "% Rule 4: Agent cannot buy a stock while selling a different stock",
@@ -185,23 +149,15 @@ ASP_ENCODING = [
     "% Rule 7: Agent cannot sell a stock while buying a different stock",
     "-sell(X, Y) :- buy(X2, Y2), X != X2, price(Y), company(X).",
 
-    # "% Rule 7: Agent must sell if a move of >= -2.5 percent is observed. The duplicate below is for after hours",
-    # "sell(X, Y) :- not sold(X), percentagemoveday(P, X), P > stoploss, P < 0, company(X), price(Y), bought(X).",
-    # "sell(X, Y) :- not sold(X), percentagemovepost(P, X), P > stoploss, P < 0, company(X), price(Y), hour >= 4, hour < 8.",
-
     "% Rule 8: Agent cannot sell the same stock more than 1 time that day",
     "-can_sell(X, Y) :- sold(X), price(Y).",
     
     "% Rule 9: Agent can sell after hours if a post position move above the post profit marker is observed.",
     "can_sell(X, Y) :- not sold(X), percentagemovepost(P, X), P >= post_profit_marker, price(Y), company(X), hour >= 4, hour < 8.",
 
-    # "% Rule 9: Agent must spend as much of their balance as possible by the end of the day if not all",
-    # ":- budget > askprice(Y, X), hour = 8, not sold(X), company(X), price(Y).",
-
     "% Rule 10: Agent can sell during the day if a day position move above the day profit marker is observed.",
     "can_sell(X, Y) :- not sold(X), percentagemoveday(P, X), P >= day_profit_marker, price(Y), company(X), bought(X), hour >= 9.",
     "can_sell(X, Y) :- not sold(X), percentagemoveday(P, X), P >= day_profit_marker, price(Y), company(X), bought(X), hour >= 1, hour < 4.",
-    # "sell(X, Y) :- not sold(X), percentagemovepost(P, X), P >= profit_marker, price(Y), hour >= 4, hour < 8.",
     '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%',
 ]
 
@@ -238,6 +194,7 @@ def company_predicates(company_info: dict) -> list:
 
     lines = []
 
+    lines.append("%%% Below are all input predicates and their English descriptions. They encompass the company, ask price, bid price, ask size, bid size, high price, low price, close price, and movement percentages.")
     for company in company_info:
         if company == 'Start Cell':
             continue
