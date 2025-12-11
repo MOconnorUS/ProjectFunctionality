@@ -66,7 +66,7 @@ sell(X, Y) | -sell(X, Y) :- can_sell(X, Y).
 -can_monitor(X) :- buy(X, Y), price(Y).
 % Agent cannot monitor company X if agent is selling company X at price Y
 -can_monitor(X) :- sell(X, Y), price(Y).
-% Agent can monitor company X as long as it is unknow that they cannot monitor X
+% Agent can monitor company X as long as it is unknown that they cannot monitor X
 can_monitor(X) :- company(X), not -can_monitor(X).
 % Monitor is an output predicate derived from the can_monitor predicates above
 % Agent monitors company X if can_monitor(X)
